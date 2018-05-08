@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine.Assertions;
+#if UNITY_2018_2_OR_NEWER
+using UnityEngine.Animations;
+#endif
 
 namespace UnityEngine.Rendering.PostProcessing
 {
@@ -122,6 +125,9 @@ namespace UnityEngine.Rendering.PostProcessing
             if (RuntimeUtilities.scriptableRenderPipelineActive)
                 return;
 
+#if UNITY_2018_2_OR_NEWER
+            m_PhysicalCamera = false;
+#endif
             InitLegacy();
         }
 
@@ -276,7 +282,11 @@ namespace UnityEngine.Rendering.PostProcessing
             // We also need to force reset the non-jittered projection matrix here as it's not done
             // when ResetProjectionMatrix() is called and will break transparent rendering if TAA
             // is switched off and the FOV or any other camera property changes.
-            m_Camera.ResetProjectionMatrix();
+ 
+#if UNITY_2018_2_OR_NEWER
+            if (!m_Camera.usePhysicalProperties)
+#endif
+                m_Camera.ResetProjectionMatrix();
             m_Camera.nonJitteredProjectionMatrix = m_Camera.projectionMatrix;
 
             if (m_Camera.stereoEnabled)
@@ -444,7 +454,13 @@ namespace UnityEngine.Rendering.PostProcessing
 
             if (m_CurrentContext.IsTemporalAntialiasingActive())
             {
-                m_Camera.ResetProjectionMatrix();
+#if UNITY_2018_2_OR_NEWER
+                // TAA calls SetProjectionMatrix so if the camera projection mode was physical, it gets set to explicit. So we set it back to physical.
+                if (m_PhysicalCamera)   
+                    m_Camera.usePhysicalProperties = true;
+                else 
+#endif
+                    m_Camera.ResetProjectionMatrix();
 
                 if (m_CurrentContext.stereoActive)
                 {
@@ -567,6 +583,10 @@ namespace UnityEngine.Rendering.PostProcessing
             context.antialiasing = antialiasingMode;
             context.temporalAntialiasing = temporalAntialiasing;
             context.logHistogram = m_LogHistogram;
+
+#if UNITY_2018_2_OR_NEWER
+            m_PhysicalCamera = context.camera.usePhysicalProperties;
+#endif
             SetLegacyCameraFlags(context);
 
             // Prepare debug overlay
@@ -963,5 +983,22 @@ namespace UnityEngine.Rendering.PostProcessing
             bool lightMeter = debugLayer.lightMeter.IsRequestedAndSupported(context);
             return autoExpo || lightMeter;
         }
+
+#if UNITY_2018_2_OR_NEWER
+        private bool m_PhysicalCamera;
+        
+        [Serializable]
+        public class PhysicalCameraDepthOfFieldOverride
+        {
+            public float priority = 1.0f;
+            public float aperture = 5.6f;
+            public KernelSize kernelSize = KernelSize.Medium;
+            public Transform interestPosition;
+        }
+
+        [SerializeField]
+        public PhysicalCameraDepthOfFieldOverride physicalCameraDoFOverride = new PhysicalCameraDepthOfFieldOverride();
+        
     }
+#endif
 }

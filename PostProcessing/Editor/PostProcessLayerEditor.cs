@@ -32,6 +32,10 @@ namespace UnityEditor.Rendering.PostProcessing
 
         SerializedProperty m_ShowToolkit;
         SerializedProperty m_ShowCustomSorter;
+        SerializedProperty m_CameraDoFPriority;
+        SerializedProperty m_CameraDoFAperture;
+        SerializedProperty m_CameraDoFKernelSize;
+        SerializedProperty m_CameraDoFInterestPosition;
 
         Dictionary<PostProcessEvent, ReorderableList> m_CustomLists;
 
@@ -71,6 +75,12 @@ namespace UnityEditor.Rendering.PostProcessing
 
             m_ShowToolkit = serializedObject.FindProperty("m_ShowToolkit");
             m_ShowCustomSorter = serializedObject.FindProperty("m_ShowCustomSorter");
+
+            m_CameraDoFPriority = serializedObject.FindProperty("physicalCameraDoFOverride").FindPropertyRelative("priority");
+            m_CameraDoFAperture = serializedObject.FindProperty("physicalCameraDoFOverride").FindPropertyRelative("aperture");
+            m_CameraDoFKernelSize = serializedObject.FindProperty("physicalCameraDoFOverride").FindPropertyRelative("kernelSize");
+            m_CameraDoFInterestPosition = serializedObject.FindProperty("physicalCameraDoFOverride").FindPropertyRelative("interestPosition");
+
         }
 
         void OnDisable()
@@ -92,6 +102,7 @@ namespace UnityEditor.Rendering.PostProcessing
             DoVolumeBlending();
             DoAntialiasing();
             DoFog(camera);
+            DoDepthOfField(camera);
 
             EditorGUILayout.PropertyField(m_StopNaNPropagation, EditorUtilities.GetContent("Stop NaN Propagation|Automatically replaces NaN/Inf in shaders by a black pixel to avoid breaking some effects. This will slightly affect performances and should only be used if you experience NaN issues that you can't fix. Has no effect on GLES2 platforms."));
             EditorGUILayout.Space();
@@ -201,6 +212,24 @@ namespace UnityEditor.Rendering.PostProcessing
             EditorGUI.indentLevel--;
 
             EditorGUILayout.Space();
+        }
+
+        void DoDepthOfField(Camera camera)
+        {
+#if UNITY_2018_2_OR_NEWER    
+            if (camera.usePhysicalProperties)
+            {
+                EditorGUILayout.LabelField(EditorUtilities.GetContent("Depth Of Field"), EditorStyles.boldLabel);   
+                EditorGUI.indentLevel++;
+                if (SystemInfo.graphicsShaderLevel < 35)
+                    EditorGUILayout.HelpBox("Depth Of Field is only supported on the following platforms:\nDX11+, OpenGL 3.2+, OpenGL ES 3+, Metal, Vulkan, PS4/XB1 consoles.", MessageType.Warning);
+                EditorGUILayout.PropertyField(m_CameraDoFPriority);
+                EditorGUILayout.Slider(m_CameraDoFAperture,0.1f,32f,"Aperture");
+                EditorGUILayout.PropertyField(m_CameraDoFKernelSize);
+                EditorGUILayout.PropertyField(m_CameraDoFInterestPosition);
+                EditorGUI.indentLevel--;
+            }
+#endif
         }
 
         void DoToolkit()

@@ -17,6 +17,9 @@ namespace UnityEngine.Rendering.PostProcessing
     [PostProcess(typeof(DepthOfFieldRenderer), "Unity/Depth of Field", false)]
     public sealed class DepthOfField : PostProcessEffectSettings
     {
+        // Height of the 35mm full-frame format (36mm x 24mm)
+        const float k_FilmHeight = 24f;
+
         [Min(0.1f), Tooltip("Distance to the point of focus.")]
         public FloatParameter focusDistance = new FloatParameter { value = 10f };
 
@@ -25,6 +28,9 @@ namespace UnityEngine.Rendering.PostProcessing
 
         [Range(1f, 300f), Tooltip("Distance between the lens and the film. The larger the value is, the shallower the depth of field is.")]
         public FloatParameter focalLength = new FloatParameter { value = 50f };
+
+        [Min(0.1f), Tooltip("Height of the camera sensor in millimeters")]
+        public FloatParameter filmHeight = new FloatParameter { value = k_FilmHeight };
 
         [DisplayName("Max Blur Size"), Tooltip("Convolution kernel size of the bokeh filter, which determines the maximum radius of bokeh. It also affects performances (the larger the kernel is, the longer the GPU time is required).")]
         public KernelSizeParameter kernelSize = new KernelSizeParameter { value = KernelSize.Medium };
@@ -61,9 +67,6 @@ namespace UnityEngine.Rendering.PostProcessing
         readonly RenderTexture[][] m_CoCHistoryTextures = new RenderTexture[k_NumEyes][];
         int[] m_HistoryPingPong = new int[k_NumEyes];
 
-        // Height of the 35mm full-frame format (36mm x 24mm)
-        // TODO: Should be set by a physical camera
-        const float k_FilmHeight = 0.024f;
 
         public DepthOfFieldRenderer()
         {
@@ -126,16 +129,16 @@ namespace UnityEngine.Rendering.PostProcessing
             var cocFormat = SelectFormat(RenderTextureFormat.R8, RenderTextureFormat.RHalf);
 
             // Avoid using R8 on OSX with Metal. #896121, https://goo.gl/MgKqu6
-            #if (UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX) && !UNITY_2017_1_OR_NEWER
+#if (UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX) && !UNITY_2017_1_OR_NEWER
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Metal)
                 cocFormat = SelectFormat(RenderTextureFormat.RHalf, RenderTextureFormat.Default);
-            #endif
+#endif
 
             // Material setup
-            float scaledFilmHeight = k_FilmHeight * (context.height / 1080f);
+            float scaledFilmHeight = settings.filmHeight.value/1000f * (context.height / 1080f); 
             var f = settings.focalLength.value / 1000f;
             var s1 = Mathf.Max(settings.focusDistance.value, f);
-            var aspect = (float)context.screenWidth / (float)context.screenHeight;
+            var aspect = (float)context.screenWidth / (float)context.screenHeight; 
             var coeff = f * f / (settings.aperture.value * (s1 - f) * scaledFilmHeight * 2f);
             var maxCoC = CalculateMaxCoCRadius(context.screenHeight);
 

@@ -71,6 +71,8 @@ namespace UnityEngine.Rendering.PostProcessing
         [Tooltip("Volume priority in the stack. Higher number means higher priority. Negative values are supported.")]
         public float priority = 0f;
 
+        public bool isPhysicalCameraDoFVolume = false;
+
         // This property automatically instantiates the profile and make it unique to this volume
         // so you can safely edit it via scripting at runtime without changing the original asset
         // in the project.
@@ -119,7 +121,10 @@ namespace UnityEngine.Rendering.PostProcessing
 
         void OnEnable()
         {
-            PostProcessManager.instance.Register(this);
+            if (isPhysicalCameraDoFVolume)
+                PostProcessManager.instance.physicalCamDoFVolume = this;
+            else
+                PostProcessManager.instance.Register(this);
             m_PreviousLayer = gameObject.layer;
             m_TempColliders = new List<Collider>();
         }

@@ -28,6 +28,10 @@ namespace UnityEngine.Rendering.PostProcessing
         readonly Dictionary<int, bool> m_SortNeeded;
         readonly List<PostProcessEffectSettings> m_BaseSettings;
         readonly List<Collider> m_TempColliders;
+#if UNITY_2018_2_OR_NEWER
+        DepthOfField m_CameraDoF;
+        public PostProcessVolume physicalCamDoFVolume;
+#endif
 
         public readonly Dictionary<Type, PostProcessAttribute> settingsTypes;
 
@@ -289,8 +293,47 @@ namespace UnityEngine.Rendering.PostProcessing
             bool onlyGlobal = volumeTrigger == null;
             var triggerPos = onlyGlobal ? Vector3.zero : volumeTrigger.position;
 
+#if UNITY_2018_2_OR_NEWER
+            if (camera.usePhysicalProperties)
+            {
+                if (physicalCamDoFVolume == null)
+                {
+                    physicalCamDoFVolume = QuickVolume(8, postProcessLayer.physicalCameraDoFOverride.priority, m_CameraDoF);
+                    physicalCamDoFVolume.isPhysicalCameraDoFVolume = true;
+                }
+                
+                if (m_CameraDoF == null)
+                {
+                    m_CameraDoF = ScriptableObject.CreateInstance<DepthOfField>();
+                    m_CameraDoF.enabled.Override(true);
+                    m_CameraDoF.active = true;
+                    physicalCamDoFVolume.profile.AddSettings(m_CameraDoF);
+                }
+
+                physicalCamDoFVolume.priority = postProcessLayer.physicalCameraDoFOverride.priority;
+
+                if (postProcessLayer.physicalCameraDoFOverride.interestPosition != null)
+                    m_CameraDoF.focusDistance.Override(Vector3.Distance(postProcessLayer.physicalCameraDoFOverride.interestPosition.position, camera.gameObject.transform.position));
+                m_CameraDoF.kernelSize.Override(postProcessLayer.physicalCameraDoFOverride.kernelSize);
+                m_CameraDoF.aperture.Override(postProcessLayer.physicalCameraDoFOverride.aperture);
+                m_CameraDoF.focalLength.Override(camera.focalLength);
+                m_CameraDoF.filmHeight.Override(camera.sensorSize.y);
+
+                postProcessLayer.OverrideSettings(physicalCamDoFVolume.profileRef.settings, 1.0f); 
+            
+            }
+#endif
+
             // Sort the cached volume list(s) for the given layer mask if needed and return it
             var volumes = GrabVolumes(mask);
+#if UNITY_2018_2_OR_NEWER
+            if (camera.usePhysicalProperties)
+            {
+                volumes = new List<PostProcessVolume>(volumes){physicalCamDoFVolume};
+                // physical cam volume priority might have changed between cameras, can't rely on cache :( sort again..
+                SortByPriority(volumes);
+            }
+#endif
 
             // Traverse all volumes
             foreach (var volume in volumes)
